@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Splash Screen Theme (shown at app launch) -->
+    <style name="Theme.ProPlanet.Splash" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/black</item>
+        <item name="postSplashScreenTheme">@style/Theme.ProPlanetPerson</item>
+    </style>
+
+    <!-- Main App Theme (used after splash screen) -->
+    <style name="Theme.ProPlanetPerson" parent="Base.Theme.ProPlanetPerson" />
+
+    <!-- Base App Theme -->
+    <style name="Base.Theme.ProPlanetPerson" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your theme here -->
+        <!-- Example: <item name="colorPrimary">@color/your_primary_color</item> -->
+    </style>
+
+</resources>

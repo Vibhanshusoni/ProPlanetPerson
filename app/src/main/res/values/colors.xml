@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="eco_green">#4CAF50</color>
+    <color name="hii">#2E7D32</color>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="colorPrimary">#6302EF</color>
+    <color name="purple_500">#6200EE</color>
+    <color name="purple_700">#3700B3</color>
+    <color name="teal_200">#03DAC5</color>
+    <color name="teal_700">#018786</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="lavender">#E6E6FA</color>
+    <color name="purple">#B95ECA</color>
+    <color name="d_purple">#DA28F8</color>
+    <color name="colorPrimary1">#5C32C7</color>
+    <color name="colorPrimaryDark">#5C32C7</color>
+    <color name="colorAccent">#ff68a5</color>
+    <color name="colorBlack">#c2bdbf</color>
+    <color name="colorBlue">#5552ff</color>
+
+    <color name="progress_primary">#4CAF50</color> <!-- Green for active progress -->
+    <color name="progress_secondary">#CCCCCC</color> <!-- Gray for background -->
+
+</resources>

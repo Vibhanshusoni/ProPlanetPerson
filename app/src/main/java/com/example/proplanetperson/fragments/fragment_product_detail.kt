@@ -1,0 +1,4 @@
+package com.example.proplanetperson.fragments
+
+class fragment_product_detail {
+}

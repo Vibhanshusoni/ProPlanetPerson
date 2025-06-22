@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "981962790730",
+    "project_id": "pro-planet-person-69ff7",
+    "storage_bucket": "pro-planet-person-69ff7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981962790730:android:2f277f6dd096c5719813b3",
+        "android_client_info": {
+          "package_name": "com.example.proplanetperson"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "981962790730-5nobmd65k35dunmbd7daa8p61oa2slbq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.proplanetperson",
+            "certificate_hash": "de1895fa47af5401e642ae3a3c68c724202268d1"
+          }
+        },
+        {
+          "client_id": "981962790730-dhp0c311c23a1ijff9v64pk5o4bggbt5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYPWblTFBmBLhUecEJj0JSmnCbOACUhNg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "981962790730-dhp0c311c23a1ijff9v64pk5o4bggbt5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

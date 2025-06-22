@@ -1,0 +1,3 @@
+package com.example.proplanetperson.databinding
+
+class ActivitySignupBinding
