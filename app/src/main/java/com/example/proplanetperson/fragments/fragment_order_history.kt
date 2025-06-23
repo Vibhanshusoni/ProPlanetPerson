@@ -1,4 +1,3 @@
 package com.example.proplanetperson.fragments
 
-class fragment_order_history {
-}
+class fragment_order_history

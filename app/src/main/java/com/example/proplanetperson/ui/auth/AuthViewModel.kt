@@ -4,14 +4,15 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proplanetperson.api.AuthRepositoryImpl
+import com.example.proplanetperson.api.AuthRepositoryImpl // <--- CHANGE THIS IMPORT
 import com.example.proplanetperson.models.AuthResponse
 import com.example.proplanetperson.models.User
 import com.example.proplanetperson.models.UserAuthRequest
 import com.example.proplanetperson.utils.Resource
 import kotlinx.coroutines.launch
 
-class AuthViewModel(private val repository: AuthRepositoryImpl) : ViewModel() {
+class AuthViewModel(private val repository: AuthRepositoryImpl) :
+    ViewModel() { // <--- CHANGE THIS TYPE HERE
 
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
@@ -50,7 +51,6 @@ class AuthViewModel(private val repository: AuthRepositoryImpl) : ViewModel() {
     }
 
     fun resetAuthResult() {
-        // CORRECTED LINE: Instantiate Idle as a class
         _authResult.value = Resource.Idle()
     }
 }

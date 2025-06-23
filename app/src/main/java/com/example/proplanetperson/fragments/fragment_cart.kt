@@ -1,4 +1,3 @@
 package com.example.proplanetperson.fragments
 
-class fragment_cart {
-}
+class fragment_cart

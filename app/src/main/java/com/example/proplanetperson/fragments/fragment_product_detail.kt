@@ -1,4 +1,3 @@
 package com.example.proplanetperson.fragments
 
-class fragment_product_detail {
-}
+class fragment_product_detail

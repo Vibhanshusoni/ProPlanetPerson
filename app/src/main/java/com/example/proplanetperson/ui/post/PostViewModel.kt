@@ -95,15 +95,15 @@ class PostViewModel(
 
     // Reset function for createStoryResult
     fun resetCreateStoryResult() {
-        _createStoryResult.value = Resource.Idle // Correctly reset to Resource.Idle
+        _createStoryResult.value = Resource.Idle ()// Correctly reset to Resource.Idle
     }
     // --- END NEW ---
 
     fun resetCreatePostResult() {
-        _createPostResult.value = Resource.Idle // Correctly reset to Resource.Idle
+        _createPostResult.value = Resource.Idle() // Correctly reset to Resource.Idle
     }
 
     fun resetPostCommentResult() {
-        _postCommentResult.value = Resource.Idle // Correctly reset to Resource.Idle
+        _postCommentResult.value = Resource.Idle() // Correctly reset to Resource.Idle
     }
 }

@@ -89,7 +89,7 @@ class MediaUploadActivity : AppCompatActivity() {
         }
 
         cameraLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
+            if (result.resultCode == RESULT_OK) {
                 val imageBitmap = result.data?.extras?.get("data") as? Bitmap
                 imageBitmap?.let {
                     // Convert Bitmap to Uri for consistent handling
@@ -102,7 +102,7 @@ class MediaUploadActivity : AppCompatActivity() {
         }
 
         galleryLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
+            if (result.resultCode == RESULT_OK) {
                 result.data?.data?.let { uri ->
                     selectedUri = uri
                     mediaPreview.setImageURI(uri)

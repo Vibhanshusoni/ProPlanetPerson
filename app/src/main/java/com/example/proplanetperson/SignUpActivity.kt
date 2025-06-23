@@ -9,8 +9,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.example.proplanetperson.api.ApiClient
 import com.example.proplanetperson.api.ApiClient.authApi
+import com.example.proplanetperson.api.ApiService
 import com.example.proplanetperson.api.AuthRepositoryImpl
 import com.example.proplanetperson.models.UserAuthRequest
 import com.example.proplanetperson.ui.auth.AuthViewModel
@@ -38,7 +38,7 @@ class SignUpActivity : AppCompatActivity() {
         sessionManager = SessionManager(this)
 
         // Initialize AuthViewModel using the factory
-        val authRepository = AuthRepositoryImpl(authApi) // Use AuthRepositoryImpl and ApiClient.authApi
+        val authRepository = AuthRepositoryImpl(authApi as ApiService) // Use AuthRepositoryImpl and ApiClient.authApi
         val viewModelFactory = AuthViewModelFactory(authRepository)
         authViewModel = ViewModelProvider(this, viewModelFactory).get(AuthViewModel::class.java)
 

@@ -10,7 +10,7 @@ object ApiClient {
 
     // --- BASE URLs ---
     // IMPORTANT: REPLACE WITH YOUR ACTUAL BACKEND BASE URL
-    private const val BACKEND_BASE_URL = "https://192.168.0.138:5000/"
+    private const val BACKEND_BASE_URL = "http://10.0.2.2:5000/"
 
     // IMPORTANT: Use the correct base URL for your external Quote API
     private const val QUOTE_API_BASE_URL = "https://api.quotable.io/" // Example: for Quotable API

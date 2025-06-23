@@ -34,6 +34,6 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
     }
 
     fun resetLoginResult() {
-        _loginResult.value = Resource.Idle // <--- CHANGE THIS LINE
+        _loginResult.value = Resource.Idle() // <--- CHANGE THIS LINE
     }
 }

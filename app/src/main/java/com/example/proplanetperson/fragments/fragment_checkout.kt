@@ -1,4 +1,3 @@
 package com.example.proplanetperson.fragments
 
-class fragment_checkout {
-}
+class fragment_checkout

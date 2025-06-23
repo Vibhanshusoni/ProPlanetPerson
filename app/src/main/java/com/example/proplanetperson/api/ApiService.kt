@@ -1,17 +1,20 @@
+// com.example.proplanetperson.api.ApiService.kt
 package com.example.proplanetperson.api
 
-import com.example.proplanetperson.models.LoginRequest
-import com.example.proplanetperson.models.LoginResponse
-import com.example.proplanetperson.models.ServerStatus
-import retrofit2.Call
+import com.example.proplanetperson.models.AuthResponse
+import com.example.proplanetperson.models.User
+import com.example.proplanetperson.models.UserAuthRequest
+import retrofit2.Response
 import retrofit2.http.Body
-import retrofit2.http.GET
 import retrofit2.http.POST
 
 interface ApiService {
-    @GET("/api/status")
-    fun getServerStatus(): Call<ServerStatus>
+    @POST("api/register") // Adjust endpoint as per your backend
+    suspend fun registerUser(@Body request: UserAuthRequest): Response<AuthResponse>
 
-    @POST("/api/login")
-    fun loginUser(@Body loginRequest: LoginRequest): Call<LoginResponse>
+    @POST("api/login") // Adjust endpoint as per your backend
+    suspend fun loginUser(@Body user: User): Response<AuthResponse>
+
+    @POST("api/google-login") // Adjust endpoint as per your backend
+    suspend fun googleLogin(@Body idToken: Map<String, String>): Response<AuthResponse>
 }
