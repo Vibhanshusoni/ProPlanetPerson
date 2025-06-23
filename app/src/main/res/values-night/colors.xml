@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="profile_secondary_text">#BDBDBD</color> <color name="profile_primary_text">#FFFFFF</color> <color name="logout_button_background">#64B5F6</color>
+    <color name="delete_button_background">#E57373</color>
+    <color name="button_text_color">#1F1F1F</color>
+</resources>

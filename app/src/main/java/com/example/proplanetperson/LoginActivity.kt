@@ -2,97 +2,100 @@ package com.example.proplanetperson
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.*
+import android.util.Log
+import android.widget.Button // Assuming you have a login button
+import android.widget.EditText // Assuming you have email/password input fields
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.android.gms.auth.api.signin.*
-import com.google.android.gms.common.SignInButton
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.GoogleAuthProvider
+import androidx.lifecycle.ViewModelProvider
+import com.example.proplanetperson.MainActivity // Your main activity after login
+import com.example.proplanetperson.R // Your layout file
+import com.example.proplanetperson.api.ApiClient // Assuming you have an ApiClient to get ApiService
+import com.example.proplanetperson.api.AuthRepository
+import com.example.proplanetperson.models.User // User model for login payload
+import com.example.proplanetperson.ui.auth.AuthViewModel
+import com.example.proplanetperson.ui.auth.AuthViewModelFactory
+import com.example.proplanetperson.utils.Resource // Your Resource class
+import com.example.proplanetperson.utils.SessionManager // Your SessionManager
 
 class LoginActivity : AppCompatActivity() {
-    private lateinit var auth: FirebaseAuth
-    private lateinit var googleSignInClient: GoogleSignInClient
-    private val RC_SIGN_IN = 9001
+
+    private lateinit var authViewModel: AuthViewModel
+    private lateinit var sessionManager: SessionManager // To save session after login
+
+    // Example UI elements (replace with your actual IDs)
+    private lateinit var emailEditText: EditText
+    private lateinit var passwordEditText: EditText
+    private lateinit var loginButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_login)
+        setContentView(R.layout.activity_login) // Replace with your actual layout
 
-        auth = FirebaseAuth.getInstance()
+        // Initialize UI elements
+        emailEditText = findViewById(R.id.loginUserName) // Replace with your actual IDs
+        passwordEditText = findViewById(R.id.passwordEditText)
+        loginButton = findViewById(R.id.loginButton)
 
-        val loginBtn = findViewById<Button>(R.id.loginButton)
-        val email = findViewById<EditText>(R.id.loginUserName)
-        val password = findViewById<EditText>(R.id.passwordEditText)
-        val googleSignInBtn = findViewById<SignInButton>(R.id.googleSignInBtn)
-        val signUpText = findViewById<TextView>(R.id.signup)
+        // Initialize SessionManager
+        sessionManager = SessionManager(this)
 
-        // Email Login
-        loginBtn.setOnClickListener {
-            val userEmail = email.text.toString()
-            val userPass = password.text.toString()
+        // Initialize ViewModel
+        // You'll need a ViewModelFactory if your ViewModel has constructor arguments
+        val repository = AuthRepository(ApiClient.apiService) // Get your ApiService here
+        val viewModelFactory = AuthViewModelFactory(repository)
+        authViewModel = ViewModelProvider(this, viewModelFactory).get(AuthViewModel::class.java)
 
-            if (userEmail.isNotEmpty() && userPass.isNotEmpty()) {
-                auth.signInWithEmailAndPassword(userEmail, userPass)
-                    .addOnCompleteListener {
-                        if (it.isSuccessful) {
-                            goToMain(auth.currentUser)
-                        } else {
-                            Toast.makeText(this, "Login Failed!", Toast.LENGTH_SHORT).show()
-                        }
+        // Observe the authentication result LiveData
+        authViewModel.authResult.observe(this) { result ->
+            when (result) {
+                is Resource.Loading -> {
+                    Log.d("LoginActivity", "Login state: Loading")
+                    // Show loading indicator (e.g., ProgressBar)
+                }
+                is Resource.Success -> {
+                    Log.d("LoginActivity", "Login state: Success. User ID: ${result.data?.userId}")
+                    // Hide loading indicator
+                    Toast.makeText(this, result.data?.message ?: "Login successful!", Toast.LENGTH_SHORT).show()
+
+                    // Save user session (token, userId, etc.) using SessionManager
+                    result.data?.let {
+                        sessionManager.saveAuthToken(it.token)
+                        sessionManager.saveUserId(it.userId)
+                        // Save other user info if your AuthResponse contains it
                     }
-            } else {
-                Toast.makeText(this, "Please enter all fields", Toast.LENGTH_SHORT).show()
+
+                    // Navigate to the main activity
+                    val intent = Intent(this, MainActivity::class.java)
+                    startActivity(intent)
+                    finish() // Close LoginActivity so user cannot go back to it
+                }
+                is Resource.Error -> {
+                    Log.e("LoginActivity", "Login state: Error - ${result.message}")
+                    // Hide loading indicator
+                    Toast.makeText(this, result.message ?: "Login failed.", Toast.LENGTH_LONG).show()
+                }
+                is Resource.Idle -> {
+                    Log.d("LoginActivity", "Login state: Idle")
+                    // Initial state or after a reset
+                }
             }
         }
 
-        // Navigation to Signup
-        signUpText.setOnClickListener {
-            startActivity(Intent(this, SignUpActivity::class.java))
-        }
+        // Set up login button click listener
+        loginButton.setOnClickListener {
+            val email = emailEditText.text.toString().trim()
+            val password = passwordEditText.text.toString().trim()
 
-        // Google Sign In Config
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        googleSignInBtn.setOnClickListener {
-            val signInIntent = googleSignInClient.signInIntent
-            startActivityForResult(signInIntent, RC_SIGN_IN)
-        }
-    }
-
-    private fun goToMain(user: FirebaseUser?) {
-        startActivity(Intent(this, MainActivity::class.java))
-        finish()
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == RC_SIGN_IN) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                firebaseAuthWithGoogle(account.idToken!!)
-            } catch (e: ApiException) {
-                Toast.makeText(this, "Google Sign-In Failed", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun firebaseAuthWithGoogle(idToken: String) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                goToMain(auth.currentUser)
+            if (email.isNotEmpty() && password.isNotEmpty()) {
+                // Assuming your backend login expects a User object with email and password
+                val loginUserPayload = User(email = email, password = password)
+                authViewModel.loginUser(loginUserPayload)
             } else {
-                Toast.makeText(this, "Google Sign-In Failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please enter email and password.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 }
+
+private fun SessionManager.saveAuthToken(string: String) {}

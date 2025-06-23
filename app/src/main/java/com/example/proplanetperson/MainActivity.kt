@@ -1,125 +1,98 @@
 package com.example.proplanetperson
 
-import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.ActionBarDrawerToggle
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.appcompat.widget.Toolbar
-import androidx.drawerlayout.widget.DrawerLayout
-import com.example.proplanetperson.fragments.*
-import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.navigation.NavigationView
-import com.google.firebase.auth.FirebaseAuth
-import androidx.fragment.app.Fragment
-// Removed FirebaseApp import as initialization will be in custom Application class
-// import com.google.firebase.FirebaseApp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.proplanetperson.api.ApiClient
+import com.example.proplanetperson.api.UserRepositoryImpl // Used in ViewModel factory
+import com.example.proplanetperson.models.LoginRequest
+import com.example.proplanetperson.models.LoginResponse
+import com.example.proplanetperson.models.ServerStatus // Import if you use it directly
+import com.example.proplanetperson.ui.main.MainViewModel // Import the new ViewModel
+import com.example.proplanetperson.utils.Resource // Import Resource class
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var drawerLayout: DrawerLayout
-    private lateinit var navView: NavigationView
+    private lateinit var mainViewModel: MainViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.activity_main) // Your layout file
 
-        // Removed FirebaseApp.initializeApp(this) from here.
-        // It will now be initialized in the custom Application class for earlier setup.
-
-        // Setup Toolbar
-        val toolbar: Toolbar = findViewById(R.id.toolbar)
-        setSupportActionBar(toolbar)
-
-        // Initialize DrawerLayout and NavigationView
-        drawerLayout = findViewById(R.id.drawer_layout)
-        navView = findViewById(R.id.nav_view)
-
-        // Setup Drawer Toggle
-        val toggle = ActionBarDrawerToggle(
-            this, drawerLayout, toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
-        )
-        drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        // Set default fragment
-        loadFragment(HomeFragment())
-
-        // Bottom Navigation setup
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_nav)
-        bottomNav.setOnItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_home -> loadFragment(HomeFragment())
-                R.id.nav_upload -> loadFragment(UploadPostFragment())
-                R.id.nav_leaderboard -> loadFragment(LeaderboardFragment())
-                R.id.nav_profile -> loadFragment(ProfileFragment())
-                R.id.nav_search -> loadFragment(SearchFragment())
-                else -> false
+        // Initialize MainViewModel
+        val userRepository = UserRepositoryImpl(ApiClient.userApi)
+        val viewModelFactory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+                    @Suppress("UNCHECKED_CAST")
+                    return MainViewModel(userRepository) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
             }
-            true
         }
+        mainViewModel = ViewModelProvider(this, viewModelFactory).get(MainViewModel::class.java)
 
-        // Side Navigation setup
-        navView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_settings -> loadFragment(SettingFragment())
-                R.id.nav_buy -> loadFragment(BuyFragment())
-                R.id.nav_sell -> loadFragment(SellFragment())
-                R.id.nav_history -> loadFragment(HistoryFragment())
-                R.id.nav_notifications -> loadFragment(NotificationFragment())
-                R.id.nav_educational -> loadFragment(EducationalFragment())
-                R.id.nav_theme -> toggleTheme()
-                R.id.nav_signout -> showSignOutDialog()
-                else -> Toast.makeText(this, "Unknown item clicked", Toast.LENGTH_SHORT).show()
+
+        // --- Observe LiveData from MainViewModel ---
+
+        // Observe server status
+        mainViewModel.serverStatus.observe(this) { resource ->
+            when (resource) {
+                is Resource.Loading -> {
+                    Toast.makeText(this, "Checking server status...", Toast.LENGTH_SHORT).show()
+                }
+                is Resource.Success -> {
+                    val serverStatus = resource.data
+                    Log.d("ConnectionTest", "Server status: ${serverStatus?.message}")
+                    Toast.makeText(this, "Connected: ${serverStatus?.message}", Toast.LENGTH_LONG).show()
+                }
+                is Resource.Error -> {
+                    val errorMessage = resource.message ?: "Unknown error"
+                    Log.e("ConnectionTest", "Failed to connect: $errorMessage")
+                    Toast.makeText(this, "Connection failed: $errorMessage", Toast.LENGTH_LONG).show()
+                }
+                is Resource.Idle -> {
+                    // Do nothing, or reset UI elements if needed when idle
+                    Log.d("ConnectionTest", "Server status check is idle.")
+                }
             }
-            drawerLayout.closeDrawers()
-            true
-        }
-    }
-
-    override fun onBackPressed() {
-        if (drawerLayout.isDrawerOpen(navView)) {
-            drawerLayout.closeDrawer(navView)
-            return
         }
 
-        val currentFragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
-        if (currentFragment !is HomeFragment) {
-            loadFragment(HomeFragment())
-            findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId = R.id.nav_home
-        } else {
-            super.onBackPressed()
-        }
-    }
-
-    private fun loadFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
-    }
-
-    private fun toggleTheme() {
-        val isDark = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
-        AppCompatDelegate.setDefaultNightMode(
-            if (isDark) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
-        )
-        // Optional: Persist using SharedPreferences if needed
-    }
-
-    private fun showSignOutDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Sign Out")
-            .setMessage("Are you sure you want to sign out?")
-            .setPositiveButton("Yes") { _, _ ->
-                FirebaseAuth.getInstance().signOut()
-                startActivity(Intent(this, LoginActivity::class.java))
-                finish()
+        // Observe login result
+        mainViewModel.loginResult.observe(this) { resource ->
+            when (resource) {
+                is Resource.Loading -> {
+                    Toast.makeText(this, "Logging in...", Toast.LENGTH_SHORT).show()
+                }
+                is Resource.Success -> {
+                    val loginResponse = resource.data
+                    Log.d("ConnectionTest", "Login successful: ${loginResponse?.message}, User ID: ${loginResponse?.userId}")
+                    Toast.makeText(this, "Login successful!", Toast.LENGTH_LONG).show()
+                    // Here you would typically save the token and navigate to the next activity
+                }
+                is Resource.Error -> {
+                    val errorMessage = resource.message ?: "Login failed"
+                    Log.e("ConnectionTest", "Login failed: $errorMessage")
+                    Toast.makeText(this, "Login failed: $errorMessage", Toast.LENGTH_LONG).show()
+                }
+                is Resource.Idle -> { // <--- This is the one you need to keep with the Idle branch
+                    // Do nothing, or reset login UI state
+                    Log.d("LoginTest", "Login state is idle.")
+                }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
+
+        // --- Trigger API calls via ViewModel ---
+
+        // Example: Make a call to the status endpoint
+        mainViewModel.fetchServerStatus()
+
+        // Example: Make a login call (you might want to trigger this from a button click)
+        // For demonstration, it's here:
+        val loginRequest = LoginRequest("testuser", "testpass") // Replace with actual user input
+        mainViewModel.performLogin(loginRequest)
     }
 }

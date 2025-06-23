@@ -1,13 +1,16 @@
-// Story.kt
 package com.example.proplanetperson.models
 
+import com.google.gson.annotations.SerializedName
+
 data class Story(
-    var imageUrl: String = "",
-    var timeStart: Long = 0,
-    var timeEnd: Long = 0,
-    var storyId: String = "",
-    var userId: String = ""
-) {
-    // No-argument constructor required for Firebase
-    constructor() : this("", 0, 0, "", "")
-}
+    @SerializedName("storyId")
+    val storyId: String = "",
+    @SerializedName("userId") // Corresponds to Firebase's 'userid'
+    val userId: String = "",
+    @SerializedName("imageUrl") // Corresponds to Firebase's 'imageurl'
+    val imageUrl: String = "",
+    @SerializedName("timeStart") // Corresponds to Firebase's 'timestart'
+    val timeStart: Long = 0L,
+    @SerializedName("timeEnd") // Corresponds to Firebase's 'timeend'
+    val timeEnd: Long = 0L
+)

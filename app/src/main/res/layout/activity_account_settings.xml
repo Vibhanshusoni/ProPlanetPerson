@@ -17,7 +17,7 @@
             android:id="@+id/accountSettings_toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary">
+            android:background="#170137">
 
             <RelativeLayout
                 android:layout_width="match_parent"
@@ -25,15 +25,14 @@
 
                 <ImageButton
                     android:id="@+id/close_button"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:scaleType="fitCenter"
                     android:src="@drawable/close"
                     android:contentDescription="@string/close_button_desc" />
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -41,14 +40,12 @@
                     android:textStyle="bold"
                     android:textSize="18sp"
                     android:maxLines="1"
-                    android:textColor="@android:color/black"
+                    android:textColor="#FFFFFF"
                     android:layout_centerInParent="true" />
 
                 <ImageButton
                     android:id="@+id/save_edited_info"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:layout_alignParentEnd="true"
+                    android:layout_width="48dp"   android:layout_height="48dp"  android:layout_alignParentEnd="true"
                     android:layout_centerVertical="true"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:scaleType="fitCenter"
@@ -94,17 +91,20 @@
                 android:id="@+id/accountSettings_fullname_profile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginTop="10dp"
                 android:inputType="textPersonName"
                 android:textSize="15sp"
                 android:hint="Full name"
                 android:padding="10dp" />
 
+
             <EditText
                 android:id="@+id/accountSettings_username_profile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
+                android:minHeight="48dp"
                 android:inputType="text"
                 android:textSize="15sp"
                 android:hint="Username"
@@ -137,7 +137,7 @@
         android:textSize="15sp"
         android:textStyle="bold"
         android:textColor="@android:color/white"
-        android:background="@color/colorPrimary" />
+        android:background="#170137" />
 
     <!-- Delete Button -->
     <Button
@@ -148,9 +148,9 @@
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         android:layout_marginBottom="8dp"
+        android:background="#170137"
         android:text="Delete Account"
-        android:textSize="15sp"
-        android:textStyle="bold"
         android:textColor="@android:color/white"
-        android:background="@color/colorAccent" />
+        android:textSize="15sp"
+        android:textStyle="bold" />
 </RelativeLayout>

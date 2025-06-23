@@ -14,23 +14,21 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.proplanetperson.AddCommentActivity
 import com.example.proplanetperson.fragments.PostDetailFragment
 import com.example.proplanetperson.fragments.ProfileFragment
-import com.example.proplanetperson.models.User
-import com.example.proplanetperson.models.Post // Ensure this import is correct for your Post data class
+import com.example.proplanetperson.models.User // Ensure this import is correct for your User data class
+import com.example.proplanetperson.models.Post // This Post data class should now have 'imageUrl' and 'uid'
 import com.example.proplanetperson.R
 import com.example.proplanetperson.ShowUsersActivity
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
+// Removed Firebase Auth imports
+// import com.google.firebase.auth.FirebaseAuth
+// import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.squareup.picasso.Picasso
 import de.hdodenhof.circleimageview.CircleImageView
-// Import the KTX extension function for SharedPreferences.edit
 import androidx.core.content.edit // This import is crucial for the SharedPreferences.edit { } syntax
-
-// Removed the manually defined SharedPreferences.edit extension function to avoid conflicts.
-// It's provided by 'androidx.core:core-ktx' which you already have.
+import com.example.proplanetperson.utils.SessionManager // NEW: Import SessionManager
 
 // Added onCommentClick lambda to the constructor to handle comment button clicks from HomeFragment
 class PostAdapter(
@@ -39,9 +37,13 @@ class PostAdapter(
     private val onCommentClick: ((Post) -> Unit)? = null // Nullable lambda for optional handling
 ) : RecyclerView.Adapter<PostAdapter.ViewHolder>() {
 
-    private var firebaseUser: FirebaseUser? = null
+    // Removed FirebaseUser, now using SessionManager
+    private lateinit var sessionManager: SessionManager // Declare SessionManager
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        // Initialize SessionManager here, it's safe as Context is available
+        sessionManager = SessionManager(mContext)
+
         val view = LayoutInflater.from(mContext).inflate(R.layout.posts_layout, parent, false)
         return ViewHolder(view)
     }
@@ -52,31 +54,37 @@ class PostAdapter(
 
     // code for events
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        firebaseUser = FirebaseAuth.getInstance().currentUser
-        val post = mPost[position]
-        // Access properties directly, handling potential nulls
-        // IMPORTANT: Ensure your Post data class has properties named 'postid', 'postimage', 'caption', 'publisher'
-        // If your Post data class uses different names (e.g., 'postId', 'imageUrl'), you MUST change them here
-        // or rename the properties in your Post data class to match your Firebase database keys.
-        val postid = post.postId ?: "" // Default to empty string if null
+        // No longer getting firebaseUser here.
+        // User ID will be fetched via sessionManager.getUserId() when needed.
 
-        Picasso.get().load(post.postimage) // Direct access
-            .placeholder(R.drawable.ic_profile_placeholder) // Make sure you have this drawable
-            .error(R.drawable.error_image) // Make sure you have this drawable
+        val post = mPost[position]
+        // IMPORTANT: Using 'post.postId', 'post.imageUrl', 'post.caption', 'post.uid'
+        // based on the corrected Post data class definition.
+
+        val postId = post.postId // Accessing post.postId directly
+        val currentUserId = sessionManager.getUserId() // Get current user ID from SessionManager
+
+        Picasso.get().load(post.imageUrl) // Direct access to imageUrl
+            .placeholder(R.drawable.ic_profile_placeholder)
+            .error(R.drawable.error_image)
             .into(holder.postImage)
 
-        holder.caption.text = post.caption // Direct access
-        publisherInfo(holder.profileImage, holder.username, holder.publisher, post.publisher ?: "") // Direct access, handle null
-        isLiked(postid, holder.likeButton, holder.postImage) // Direct access
-        isSaved(postid, holder.saveButton) // Direct access
-        getCountofLikes(postid, holder.likes) // Direct access
-        getComments(postid, holder.comments) // Direct access
+        holder.caption.text = post.caption // Direct access to caption
+        // Pass post.uid as publisherID
+        publisherInfo(holder.profileImage, holder.username, holder.publisher, post.uid)
+
+        // Pass currentUserId for like/save checks
+        isLiked(postId, holder.likeButton, holder.postImage, currentUserId)
+        isSaved(postId, holder.saveButton, currentUserId)
+
+        getCountofLikes(postId, holder.likes)
+        getComments(postId, holder.comments)
 
         // --- Consolidated and Corrected Click Listeners ---
 
         // Listener for publisher text and profile image (common action: view publisher's profile)
         val publisherClickListener = View.OnClickListener {
-            val publisherId = post.publisher ?: "" // Direct access, handle null
+            val publisherId = post.uid // Direct access to uid
             if (publisherId.isNotEmpty()) {
                 // Using KTX extension for SharedPreferences.edit
                 mContext.getSharedPreferences("PREFS", Context.MODE_PRIVATE).edit {
@@ -84,7 +92,7 @@ class PostAdapter(
                 }
 
                 if (mContext is FragmentActivity) {
-                    mContext.supportFragmentManager.beginTransaction()
+                    (mContext as FragmentActivity).supportFragmentManager.beginTransaction()
                         .replace(R.id.fragment_container, ProfileFragment())
                         .addToBackStack(null) // Optional: Add to back stack
                         .commit()
@@ -93,23 +101,24 @@ class PostAdapter(
                 }
             } else {
                 Log.w("PostAdapter", "Publisher ID is empty for profile click.")
+                Toast.makeText(mContext, "Error: Publisher ID missing.", Toast.LENGTH_SHORT).show()
             }
         }
 
         holder.publisher.setOnClickListener(publisherClickListener)
         holder.profileImage.setOnClickListener(publisherClickListener)
-        holder.username.setOnClickListener(publisherClickListener) // username also goes to profile
+        holder.username.setOnClickListener(publisherClickListener)
 
 
         // Listener for post image (different actions: view post details on single tap)
         holder.postImage.setOnClickListener {
             // Using KTX extension for SharedPreferences.edit
             mContext.getSharedPreferences("PREFS", Context.MODE_PRIVATE).edit {
-                putString("postid", postid) // Use the 'postid' variable
+                putString("postid", postId) // Use the 'postId' variable
             }
 
             if (mContext is FragmentActivity) {
-                mContext.supportFragmentManager
+                (mContext as FragmentActivity).supportFragmentManager
                     .beginTransaction()
                     .replace(R.id.fragment_container, PostDetailFragment())
                     .addToBackStack(null) // Optional: Add to back stack
@@ -122,19 +131,19 @@ class PostAdapter(
 
         // Listener for the like button
         holder.likeButton.setOnClickListener {
-            if (firebaseUser == null) {
+            if (currentUserId.isNullOrEmpty()) { // Check if user is logged in
                 Toast.makeText(mContext, "You need to be logged in to like posts.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             if (holder.likeButton.tag.toString() == "like") {
-                FirebaseDatabase.getInstance().reference.child("Likes").child(postid)
-                    .child(firebaseUser!!.uid)
+                FirebaseDatabase.getInstance().reference.child("Likes").child(postId)
+                    .child(currentUserId)
                     .setValue(true)
-                pushNotification(postid, post.publisher ?: "") // Direct access, handle null
+                pushNotification(postId, post.uid) // Direct access to post.uid
             } else {
-                FirebaseDatabase.getInstance().reference.child("Likes").child(postid)
-                    .child(firebaseUser!!.uid)
+                FirebaseDatabase.getInstance().reference.child("Likes").child(postId)
+                    .child(currentUserId)
                     .removeValue()
             }
         }
@@ -145,7 +154,7 @@ class PostAdapter(
             onCommentClick?.invoke(post) ?: run {
                 // Otherwise, fall back to the default AddCommentActivity intent
                 val intent = Intent(mContext, AddCommentActivity::class.java).apply {
-                    putExtra("POST_ID", postid)
+                    putExtra("POST_ID", postId)
                 }
                 mContext.startActivity(intent)
             }
@@ -157,31 +166,30 @@ class PostAdapter(
         // Listener for the likes count text (goes to ShowUsersActivity for likes)
         holder.likes.setOnClickListener {
             val intent = Intent(mContext, ShowUsersActivity::class.java)
-            intent.putExtra("id", postid)
+            intent.putExtra("id", postId)
             intent.putExtra("title", "likes")
             mContext.startActivity(intent)
         }
 
         // Listener for the save button
         holder.saveButton.setOnClickListener {
-            if (firebaseUser == null) {
+            if (currentUserId.isNullOrEmpty()) { // Check if user is logged in
                 Toast.makeText(mContext, "You need to be logged in to save posts.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             if (holder.saveButton.tag == "Save") {
-                FirebaseDatabase.getInstance().reference.child("Saves").child(firebaseUser!!.uid)
-                    .child(postid).setValue(true)
+                FirebaseDatabase.getInstance().reference.child("Saves").child(currentUserId)
+                    .child(postId).setValue(true)
                 Toast.makeText(mContext, "Post Saved", Toast.LENGTH_SHORT).show()
             } else {
-                FirebaseDatabase.getInstance().reference.child("Saves").child(firebaseUser!!.uid)
-                    .child(postid).removeValue()
+                FirebaseDatabase.getInstance().reference.child("Saves").child(currentUserId)
+                    .child(postId).removeValue()
                 Toast.makeText(mContext, "Post Unsaved", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Removed @NonNull from ViewHolder constructor
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         var profileImage: CircleImageView
         var postImage: ImageView
@@ -209,8 +217,8 @@ class PostAdapter(
         }
     }
 
-    private fun getComments(postid: String, commentTextView: TextView) {
-        val commentRef = FirebaseDatabase.getInstance().reference.child("Comment").child(postid)
+    private fun getComments(postId: String, commentTextView: TextView) { // Renamed postid to postId for consistency
+        val commentRef = FirebaseDatabase.getInstance().reference.child("Comment").child(postId)
 
         commentRef.addValueEventListener(object : ValueEventListener {
             override fun onCancelled(error: DatabaseError) {
@@ -223,19 +231,20 @@ class PostAdapter(
         })
     }
 
-    private fun pushNotification(postid: String, userid: String) {
-        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
-        if (currentUid == null) {
-            Log.w("PostAdapter", "Current user is null, cannot push notification.")
+    private fun pushNotification(postId: String, userId: String) { // Renamed postid to postId and userid to userId
+        val currentUid = sessionManager.getUserId() // Get current user ID from SessionManager
+        if (currentUid.isNullOrEmpty()) {
+            Log.w("PostAdapter", "Current user is null or empty, cannot push notification.")
             return
         }
 
-        val ref = FirebaseDatabase.getInstance().reference.child("Notification").child(userid)
+        // Push notification to the post's publisher (userId)
+        val ref = FirebaseDatabase.getInstance().reference.child("Notification").child(userId)
 
         val notifyMap = HashMap<String, Any>()
         notifyMap["userid"] = currentUid
         notifyMap["text"] = "♥liked your post♥"
-        notifyMap["postid"] = postid
+        notifyMap["postid"] = postId
         notifyMap["ispost"] = true
 
         ref.push().setValue(notifyMap)
@@ -245,16 +254,16 @@ class PostAdapter(
     }
 
 
-    private fun isLiked(postid: String, imageView: ImageView, postedImg: ImageView) {
-        firebaseUser = FirebaseAuth.getInstance().currentUser
-        if (firebaseUser == null) {
+    // Added currentUserId as a parameter to check against
+    private fun isLiked(postId: String, imageView: ImageView, postedImg: ImageView, currentUserId: String?) {
+        if (currentUserId.isNullOrEmpty()) {
             imageView.setImageResource(R.drawable.heart_not_clicked)
             imageView.tag = "like"
             postedImg.tag = "like"
             return
         }
 
-        val postRef = FirebaseDatabase.getInstance().reference.child("Likes").child(postid)
+        val postRef = FirebaseDatabase.getInstance().reference.child("Likes").child(postId)
 
         postRef.addValueEventListener(object : ValueEventListener {
             override fun onCancelled(error: DatabaseError) {
@@ -262,7 +271,8 @@ class PostAdapter(
             }
 
             override fun onDataChange(datasnapshot: DataSnapshot) {
-                if (datasnapshot.child(firebaseUser!!.uid).exists()) {
+                // Check if currentUserId exists under this post's likes
+                if (datasnapshot.child(currentUserId).exists()) {
                     imageView.setImageResource(R.drawable.heart_clicked)
                     imageView.tag = "liked"
                     postedImg.tag = "liked"
@@ -275,8 +285,8 @@ class PostAdapter(
         })
     }
 
-    private fun getCountofLikes(postid: String, likesNo: TextView) {
-        val postRef = FirebaseDatabase.getInstance().reference.child("Likes").child(postid)
+    private fun getCountofLikes(postId: String, likesNo: TextView) { // Renamed postid to postId
+        val postRef = FirebaseDatabase.getInstance().reference.child("Likes").child(postId)
 
         postRef.addValueEventListener(object : ValueEventListener {
             override fun onCancelled(error: DatabaseError) {
@@ -289,19 +299,19 @@ class PostAdapter(
         })
     }
 
-    private fun isSaved(postid: String, imageView: ImageView) {
-        firebaseUser = FirebaseAuth.getInstance().currentUser
-        if (firebaseUser == null) {
+    // Added currentUserId as a parameter to check against
+    private fun isSaved(postId: String, imageView: ImageView, currentUserId: String?) { // Renamed postid to postId
+        if (currentUserId.isNullOrEmpty()) {
             imageView.setImageResource(R.drawable.save_post_unfilled)
             imageView.tag = "Save"
             return
         }
 
-        val savesRef = FirebaseDatabase.getInstance().reference.child("Saves").child(firebaseUser!!.uid)
+        val savesRef = FirebaseDatabase.getInstance().reference.child("Saves").child(currentUserId)
 
         savesRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (snapshot.child(postid).exists()) {
+                if (snapshot.child(postId).exists()) {
                     imageView.setImageResource(R.drawable.saved_post_filled)
                     imageView.tag = "Saved"
                 } else {
@@ -316,16 +326,18 @@ class PostAdapter(
         })
     }
 
-    private fun publisherInfo(profileImage: CircleImageView, username: TextView, publisher: TextView, publisherID: String) {
-        if (publisherID.isEmpty()) {
-            Log.w("PostAdapter", "Publisher ID is empty, cannot fetch user info.")
+    // Renamed publisherID to userId for clarity as it's a user's ID
+    private fun publisherInfo(profileImage: CircleImageView, username: TextView, publisher: TextView, userId: String) {
+        if (userId.isEmpty()) {
+            Log.w("PostAdapter", "User ID is empty, cannot fetch user info.")
             Picasso.get().load(R.drawable.profile).into(profileImage)
             username.text = "Unknown User"
             publisher.text = "Unknown User"
             return
         }
 
-        val userRef = FirebaseDatabase.getInstance().reference.child("Users").child(publisherID)
+        // IMPORTANT: Changed "Users" to "users" for consistency with UserProfileActivity
+        val userRef = FirebaseDatabase.getInstance().reference.child("users").child(userId)
         userRef.addValueEventListener(object : ValueEventListener {
             override fun onCancelled(error: DatabaseError) {
                 Log.e("PostAdapter", "Database error in publisherInfo: ${error.message}", error.toException())
@@ -338,6 +350,7 @@ class PostAdapter(
                 if (snapshot.exists()) {
                     val user = snapshot.getValue(User::class.java)
                     user?.let { nonNullUser ->
+                        // Access properties directly (assuming User is a data class with 'image' and 'username')
                         Picasso.get().load(nonNullUser.image)
                             .placeholder(R.drawable.profile)
                             .error(R.drawable.profile)
@@ -351,7 +364,7 @@ class PostAdapter(
                         publisher.text = "User Not Found"
                     }
                 } else {
-                    Log.d("PostAdapter", "User data not found for UID: $publisherID")
+                    Log.d("PostAdapter", "User data not found for UID: $userId")
                     Picasso.get().load(R.drawable.profile).into(profileImage)
                     username.text = "User Removed"
                     publisher.text = "User Removed"

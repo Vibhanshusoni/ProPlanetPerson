@@ -17,11 +17,11 @@
         app:lottie_loop="true" />
 
     <TextView
-        android:id="@+id/loading_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Loading..."
-        android:textSize="16sp"
+        android:layout_marginTop="8dp"
+        android:text="Uploading post..."
         android:textColor="@android:color/black"
-        android:layout_marginStart="16dp" />
+        android:textSize="16sp" />
+
 </LinearLayout>

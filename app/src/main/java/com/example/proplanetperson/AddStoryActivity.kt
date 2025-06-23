@@ -1,23 +1,37 @@
 package com.example.proplanetperson
 
-import android.app.ProgressDialog
+import android.app.Dialog
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.view.Window
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.canhub.cropper.*
-import com.example.proplanetperson.R
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ServerValue
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
+import com.example.proplanetperson.api.ApiClient
+import com.example.proplanetperson.api.PostRepositoryImpl
+import com.example.proplanetperson.api.UserRepositoryImpl // Needed for PostViewModel factory
+import com.example.proplanetperson.ui.post.PostViewModel
+import com.example.proplanetperson.utils.Resource
+import com.example.proplanetperson.utils.SessionManager
+import com.example.proplanetperson.utils.getRealPathFromURI
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 
 class AddStoryActivity : AppCompatActivity() {
 
-    private var myUrl = ""
     private var imageUri: Uri? = null
-    private var storageStoryRef: StorageReference? = null
+    private lateinit var sessionManager: SessionManager
+    private lateinit var postViewModel: PostViewModel
+    private lateinit var loadingDialog: Dialog
+
+    private var currentUserId: String? = null
+    private var authToken: String? = null
 
     private val cropImageLauncher =
         registerForActivityResult(CropImageContract()) { result ->
@@ -25,22 +39,81 @@ class AddStoryActivity : AppCompatActivity() {
                 val uriContent = result.uriContent
                 if (uriContent != null) {
                     imageUri = uriContent
+                    // Now that we have the image, initiate the upload process
                     uploadStory()
+                } else {
+                    Toast.makeText(this, "Image URI is null after cropping.", Toast.LENGTH_SHORT).show()
+                    finish() // Close if image is not ready
                 }
             } else {
-                Toast.makeText(this, "Cropping failed: ${result.error}", Toast.LENGTH_SHORT).show()
+                val error = result.error
+                Toast.makeText(this, "Cropping failed: ${error?.message}", Toast.LENGTH_LONG).show()
+                Log.e("AddStoryActivity", "Cropping failed", error)
                 finish()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_add_story)
+        setContentView(R.layout.activity_add_story) // Assuming you still use this layout
 
-        storageStoryRef = FirebaseStorage.getInstance().reference.child("Story Pictures")
+        sessionManager = SessionManager(this)
 
+        currentUserId = sessionManager.getUserId()
+        authToken = sessionManager.getAuthToken()
+
+        if (currentUserId.isNullOrEmpty() || authToken.isNullOrEmpty()) {
+            Toast.makeText(this, "You need to be logged in to add a story.", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        // Initialize PostViewModel
+        val postRepository = PostRepositoryImpl(ApiClient.postApi)
+        val userRepository = UserRepositoryImpl(ApiClient.userApi)
+        val viewModelFactory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(PostViewModel::class.java)) {
+                    @Suppress("UNCHECKED_CAST")
+                    return PostViewModel(postRepository, userRepository) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        }
+        postViewModel = ViewModelProvider(this, viewModelFactory).get(PostViewModel::class.java)
+
+        setupLoadingDialog()
+
+        // Observe the createStoryResult LiveData
+        postViewModel.createStoryResult.observe(this) { resource ->
+            when (resource) {
+                is Resource.Loading -> {
+                    loadingDialog.show()
+                }
+                is Resource.Success -> {
+                    loadingDialog.dismiss()
+                    Toast.makeText(this, "Story Added!!", Toast.LENGTH_SHORT).show()
+                    finish()
+                    postViewModel.resetCreateStoryResult()
+                }
+                is Resource.Error -> {
+                    loadingDialog.dismiss()
+                    val errorMessage = resource.message ?: "Failed to add story."
+                    Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
+                    Log.e("AddStoryActivity", "Story upload error: $errorMessage")
+                    finish()
+                    postViewModel.resetCreateStoryResult()
+                }
+                is Resource.Idle -> { // <--- ADD THIS BRANCH
+                    // Do nothing or reset specific UI elements
+                    Log.d("AddStoryActivity", "Story creation state is idle.")
+                }
+            }
+        }
+
+        // Launch image cropper immediately when activity is created, as per original logic
         val cropImageOptions = CropImageContractOptions(
-            uri = null,
+            uri = null, // Will launch image picker
             cropImageOptions = CropImageOptions().apply {
                 aspectRatioX = 9
                 aspectRatioY = 16
@@ -50,51 +123,53 @@ class AddStoryActivity : AppCompatActivity() {
         cropImageLauncher.launch(cropImageOptions)
     }
 
+    private fun setupLoadingDialog() {
+        loadingDialog = Dialog(this)
+        loadingDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        loadingDialog.setCancelable(false)
+        loadingDialog.setContentView(R.layout.dialog_loading) // Re-using dialog_loading.xml
+    }
+
     private fun uploadStory() {
         if (imageUri == null) {
-            Toast.makeText(this, "Please select Image", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No image selected for story.", Toast.LENGTH_SHORT).show()
+            finish() // Close if no image
             return
         }
 
-        val progressDialog = ProgressDialog(this)
-        progressDialog.setTitle("Adding Story")
-        progressDialog.setMessage("Please wait while your story is added")
-        progressDialog.show()
+        val userId = currentUserId
+        val token = authToken
 
-        val fileRef = storageStoryRef!!.child(System.currentTimeMillis().toString() + ".jpg")
-        val uploadTask = fileRef.putFile(imageUri!!)
+        if (userId.isNullOrEmpty() || token.isNullOrEmpty()) {
+            Toast.makeText(this, "User not authenticated to upload story.", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
-        uploadTask.continueWithTask { task ->
-            if (!task.isSuccessful) {
-                task.exception?.let { throw it }
-                progressDialog.dismiss()
-            }
-            return@continueWithTask fileRef.downloadUrl
-        }.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val downloadUrl = task.result
-                myUrl = downloadUrl.toString()
-
-                val ref = FirebaseDatabase.getInstance().reference
-                    .child("Story")
-                    .child(FirebaseAuth.getInstance().currentUser!!.uid)
-
-                val storyId = ref.push().key.toString()
-                val timeEnd = System.currentTimeMillis() + 86400000 // 24 hours
-
-                val storyMap = hashMapOf(
-                    "userid" to FirebaseAuth.getInstance().currentUser!!.uid,
-                    "timestart" to ServerValue.TIMESTAMP,
-                    "timeend" to timeEnd,
-                    "imageurl" to myUrl,
-                    "storyid" to storyId
-                )
-
-                ref.child(storyId).updateChildren(storyMap)
-                Toast.makeText(this, "Story Added!!", Toast.LENGTH_SHORT).show()
+        try {
+            // Get a real file path from the content URI
+            val filePath = getRealPathFromURI(this, imageUri!!)
+            if (filePath == null) {
+                Toast.makeText(this, "Failed to get image file.", Toast.LENGTH_SHORT).show()
+                Log.e("AddStoryActivity", "Could not get real path for URI: $imageUri")
                 finish()
+                return
             }
-            progressDialog.dismiss()
+
+            val file = File(filePath)
+            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            val imagePart = MultipartBody.Part.createFormData("image", file.name, requestFile)
+
+            val timeEnd = System.currentTimeMillis() + 86400000 // 24 hours
+            val userIdPart = userId.toRequestBody("text/plain".toMediaTypeOrNull())
+            val timeEndPart = timeEnd.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+
+            postViewModel.createStory(token, imagePart, userIdPart, timeEndPart)
+
+        } catch (e: Exception) {
+            Log.e("AddStoryActivity", "Error preparing story image for upload: ${e.message}", e)
+            Toast.makeText(this, "Failed to prepare image for story upload.", Toast.LENGTH_SHORT).show()
+            finish() // Close on error
         }
     }
 }

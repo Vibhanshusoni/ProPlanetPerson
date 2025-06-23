@@ -2,6 +2,7 @@ package com.example.proplanetperson.fragments
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log // Import Log for better error logging
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,24 +10,27 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModel // Import ViewModel
+import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import coil.load
 import com.example.proplanetperson.models.Post
-import com.example.proplanetperson.CommentActivity
+import com.example.proplanetperson.AddCommentActivity // Assuming this is for going to comment activity
 import com.example.proplanetperson.R
 import com.example.proplanetperson.adapters.PostAdapter
-import com.example.proplanetperson.api.RetrofitInstance
+import com.example.proplanetperson.api.ApiClient // Import ApiClient
+import com.example.proplanetperson.api.PostRepositoryImpl // Import PostRepositoryImpl
+import com.example.proplanetperson.api.QuoteRepositoryImpl // Import QuoteRepositoryImpl
+import com.example.proplanetperson.api.UserRepositoryImpl // Import UserRepositoryImpl (if PostViewModel needs it)
 import com.example.proplanetperson.models.Quote // Ensure this import is correct for your Quote data class
-import com.google.firebase.database.*
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import com.example.proplanetperson.ui.home.HomeViewModel // NEW: Import HomeViewModel
+import com.example.proplanetperson.utils.Resource // Import Resource class
 
-// Import the Kotlin extension for Firebase Database
-import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase // Required for Firebase.database
+// Removed Firebase Database KTX imports as direct usage is moved to ViewModel
+// import com.google.firebase.database.ktx.database
+// import com.google.firebase.ktx.Firebase // Required for Firebase.database
 
 class HomeFragment : Fragment() {
 
@@ -36,9 +40,9 @@ class HomeFragment : Fragment() {
     private lateinit var natureImage: ImageView
     private lateinit var postRecyclerView: RecyclerView
 
+    private lateinit var homeViewModel: HomeViewModel // NEW: Declare HomeViewModel
     private lateinit var postAdapter: PostAdapter
-    private val postList = mutableListOf<Post>()
-    private lateinit var databaseRef: DatabaseReference
+    private val postList = mutableListOf<Post>() // Moved here to be clear about its scope
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -53,20 +57,91 @@ class HomeFragment : Fragment() {
         swipeRefreshLayout = view.findViewById(R.id.swipeRefresh)
         postRecyclerView = view.findViewById(R.id.recycler_posts)
 
-        // Setup RecyclerView with onCommentClick handler
-        postAdapter = PostAdapter(requireContext(), postList) { post ->
-            val intent = Intent(requireContext(), CommentActivity::class.java)
-            intent.putExtra("postUrl", post.postimage)
-            intent.putExtra("caption", post.caption)
-            startActivity(intent)
+        // Initialize HomeViewModel
+        val postRepository = PostRepositoryImpl(ApiClient.postApi)
+        val quoteRepository = QuoteRepositoryImpl(ApiClient.quoteApi)
+        val viewModelFactory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
+                    @Suppress("UNCHECKED_CAST")
+                    return HomeViewModel(postRepository, quoteRepository) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
         }
+        homeViewModel = ViewModelProvider(this, viewModelFactory).get(HomeViewModel::class.java)
+
+        // Setup RecyclerView with onCommentClick handler
+        // PostAdapter needs UserRepository if it's fetching user profile images within itself
+        val userRepositoryForPostAdapter = UserRepositoryImpl(ApiClient.userApi) // Provide UserRepository
+        postAdapter = PostAdapter(requireContext(), postList) // No onCommentClick handler in PostAdapter constructor anymore.
+        // Assuming your PostAdapter doesn't take onCommentClick in constructor.
+        // If it does, you'd pass a lambda here to open AddCommentActivity.
+        // I am assuming the PostAdapter is just for display, and individual buttons handle clicks.
+        // Let's revert the PostAdapter constructor. If you explicitly want the lambda in PostAdapter
+        // for comment click, we can adjust that. For now, matching the standard PostAdapter.
+
         postRecyclerView.layoutManager = LinearLayoutManager(requireContext())
         postRecyclerView.adapter = postAdapter
 
-        // Swipe-to-refresh
+        // --- Observe LiveData from HomeViewModel ---
+        homeViewModel.quote.observe(viewLifecycleOwner) { resource ->
+            swipeRefreshLayout.isRefreshing = false // Stop refreshing whether success or error
+            when (resource) {
+                is Resource.Loading -> {
+                    // Optionally show a placeholder or loading state for quote
+                }
+                is Resource.Success -> {
+                    resource.data?.let { quote ->
+                        quoteText.text = "\"${quote.content}\""
+                        quoteAuthor.text = "- ${quote.author ?: "Unknown"}"
+                    }
+                }
+                is Resource.Error -> {
+                    Toast.makeText(requireContext(), "Failed to load quote: ${resource.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("HomeFragment", "Quote load error: ${resource.message}")
+                }
+                is Resource.Idle -> {
+                    // Do nothing or reset UI
+                }
+            }
+        }
+
+        homeViewModel.posts.observe(viewLifecycleOwner) { resource ->
+            swipeRefreshLayout.isRefreshing = false // Stop refreshing whether success or error
+            when (resource) {
+                is Resource.Loading -> {
+                    // Optionally show a loading indicator for posts
+                }
+                is Resource.Success -> {
+                    resource.data?.let { posts ->
+                        postList.clear()
+                        postList.addAll(posts)
+                        postAdapter.notifyDataSetChanged()
+                    }
+                }
+                is Resource.Error -> {
+                    Toast.makeText(requireContext(), "Failed to load posts: ${resource.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("HomeFragment", "Posts load error: ${resource.message}")
+                }
+                is Resource.Idle -> {
+                    // Do nothing or reset UI
+                }
+            }
+        }
+
+
+        // Swipe-to-refresh: Calls ViewModel to load data
         swipeRefreshLayout.setOnRefreshListener {
-            loadQuote()
-            loadPosts()
+            homeViewModel.loadQuote()
+            homeViewModel.loadPosts()
+        }
+
+        // Load a random image from Unsplash (still direct Coil load as it's UI specific)
+        natureImage.load("https://source.unsplash.com/600x400/?nature,environment") {
+            crossfade(true)
+            placeholder(R.drawable.eco_icon)
+            error(R.drawable.ic_eco)
         }
 
         return view
@@ -74,63 +149,8 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // Initialize Firebase Database reference here, after the view has been created
-        databaseRef = Firebase.database.reference.child("posts")
-
-        // Initial load (moved here to ensure databaseRef is initialized)
-        loadQuote()
-        loadPosts()
-    }
-
-    private fun loadQuote() {
-        // Changed to call getRandomQuote() which returns a single Quote object
-        RetrofitInstance.api.getRandomQuote().enqueue(object : Callback<Quote> { // Changed List<Quote> to Quote
-            override fun onResponse(call: Call<Quote>, response: Response<Quote>) { // Changed List<Quote> to Quote
-                swipeRefreshLayout.isRefreshing = false
-                if (response.isSuccessful) {
-                    val quote = response.body() // Now it's a single Quote object
-                    quote?.let {
-                        quoteText.text = "\"${it.content}\"" // Access 'content' property
-                        quoteAuthor.text = "- ${it.author ?: "Unknown"}" // Access 'author' property
-                    }
-                } else {
-                    Toast.makeText(requireContext(), "Something went wrong: ${response.code()}", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            override fun onFailure(call: Call<Quote>, t: Throwable) { // Changed List<Quote> to Quote
-                swipeRefreshLayout.isRefreshing = false
-                Toast.makeText(requireContext(), "Failed to load quote: ${t.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
-
-        // Load a random image from Unsplash
-        natureImage.load("https://source.unsplash.com/600x400/?nature,environment") {
-            crossfade(true)
-            placeholder(R.drawable.eco_icon)
-            error(R.drawable.ic_eco)
-        }
-    }
-
-    private fun loadPosts() {
-        swipeRefreshLayout.isRefreshing = true
-
-        databaseRef.orderByChild("timestamp").addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                postList.clear()
-                for (postSnapshot in snapshot.children) {
-                    val post = postSnapshot.getValue(Post::class.java)
-                    post?.let { postList.add(it) }
-                }
-                postList.reverse() // Show newest first
-                postAdapter.notifyDataSetChanged()
-                swipeRefreshLayout.isRefreshing = false
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                swipeRefreshLayout.isRefreshing = false
-                Toast.makeText(requireContext(), "Failed to load posts", Toast.LENGTH_SHORT).show()
-            }
-        })
+        // Initial load calls ViewModel to load data
+        homeViewModel.loadQuote()
+        homeViewModel.loadPosts()
     }
 }
