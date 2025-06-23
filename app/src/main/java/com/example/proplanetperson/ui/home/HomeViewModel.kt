@@ -63,10 +63,10 @@ class HomeViewModel(
 
     // Reset functions for LiveData states
     fun resetQuoteState() {
-        _quote.value = Resource.Idle
+        _quote.value = Resource.Idle()
     }
 
     fun resetPostsState() {
-        _posts.value = Resource.Idle
+        _posts.value = Resource.Idle()
     }
 }

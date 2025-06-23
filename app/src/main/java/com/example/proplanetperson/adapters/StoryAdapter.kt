@@ -128,7 +128,7 @@ class StoryAdapter (private val mContent: Context, private val mStory: List<Stor
     private fun userInfo(viewHolder: ViewHolder, userid:String, position: Int)
     {
         // IMPORTANT: Changed "Users" to "users" for consistency with other Firebase calls
-        val userRef = FirebaseDatabase.getInstance().getReference().child("users").child(userid)
+        val userRef = FirebaseDatabase.getInstance().reference.child("users").child(userid)
 
         userRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {

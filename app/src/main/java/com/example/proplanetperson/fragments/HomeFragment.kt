@@ -73,7 +73,7 @@ class HomeFragment : Fragment() {
 
         // Setup RecyclerView with onCommentClick handler
         // PostAdapter needs UserRepository if it's fetching user profile images within itself
-        val userRepositoryForPostAdapter = UserRepositoryImpl(ApiClient.userApi) // Provide UserRepository
+        UserRepositoryImpl(ApiClient.userApi) // Provide UserRepository
         postAdapter = PostAdapter(requireContext(), postList) // No onCommentClick handler in PostAdapter constructor anymore.
         // Assuming your PostAdapter doesn't take onCommentClick in constructor.
         // If it does, you'd pass a lambda here to open AddCommentActivity.

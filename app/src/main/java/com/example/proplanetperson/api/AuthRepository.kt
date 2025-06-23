@@ -1,31 +1,21 @@
+// com.example.proplanetperson.api.AuthRepository.kt
 package com.example.proplanetperson.api
 
 import android.util.Log
 import com.example.proplanetperson.models.AuthResponse
 import com.example.proplanetperson.models.User
-import com.example.proplanetperson.models.UserAuthRequest // Assuming you have this model
+import com.example.proplanetperson.models.UserAuthRequest
 import com.example.proplanetperson.utils.Resource
 import retrofit2.HttpException
 import java.io.IOException
 
-// Assuming you have an ApiService interface defined
-// interface ApiService {
-//     @POST("api/register")
-//     suspend fun registerUser(@Body request: UserAuthRequest): Response<AuthResponse>
-//
-//     @POST("api/login")
-//     suspend fun loginUser(@Body user: User): Response<AuthResponse> // Or whatever your login payload is
-//
-//     @POST("api/google-login")
-//     suspend fun googleLogin(@Body idToken: Map<String, String>): Response<AuthResponse>
-// }
+// This constructor should take ApiService, as per your working setup
+class AuthRepository(private val apiService: ApiService) {
 
-class AuthRepository(private val apiService: ApiService) { // ApiService injected
-
-    // This function was originally inside AuthViewModel, now correctly in AuthRepository
     suspend fun registerUser(request: UserAuthRequest): Resource<AuthResponse> {
         return try {
             Log.d("AuthRepository", "Attempting registration request for email: ${request.email}")
+            // This call works because apiService (which is an AuthApi instance) now implements ApiService
             val response = apiService.registerUser(request)
             if (response.isSuccessful) {
                 val authResponse = response.body()
@@ -53,11 +43,10 @@ class AuthRepository(private val apiService: ApiService) { // ApiService injecte
         }
     }
 
-    // This function was originally inside AuthViewModel, now correctly in AuthRepository
     suspend fun loginUser(user: User): Resource<AuthResponse> {
         return try {
             Log.d("AuthRepository", "Attempting login request for email: ${user.email}")
-            val response = apiService.loginUser(user) // Use the injected apiService
+            val response = apiService.loginUser(user)
             Log.d("AuthRepository", "Login API response received: ${response.code()}")
             if (response.isSuccessful) {
                 val authResponse = response.body()
@@ -73,23 +62,21 @@ class AuthRepository(private val apiService: ApiService) { // ApiService injecte
                 Log.e("AuthRepository", "Login Error: ${response.code()} - $errorBody")
                 Resource.Error(errorBody ?: "Login failed with code ${response.code()}")
             }
-        } catch (e: HttpException) { // Catch Retrofit HTTP exceptions
+        } catch (e: HttpException) {
             Log.e("AuthRepository", "Login HTTP Exception: ${e.message()}", e)
             Resource.Error(e.message() ?: "HTTP error during login")
-        } catch (e: IOException) { // Catch network-related exceptions
+        } catch (e: IOException) {
             Log.e("AuthRepository", "Login Network Error: ${e.message}", e)
             Resource.Error("Network error: Check your internet connection.")
-        } catch (e: Exception) { // Catch any other unexpected exceptions
+        } catch (e: Exception) {
             Log.e("AuthRepository", "Login Generic Exception: ${e.message}", e)
             Resource.Error("An unexpected error occurred during login.")
         }
     }
 
-    // Example for googleLogin in repository
     suspend fun googleLogin(idToken: String): Resource<AuthResponse> {
         return try {
             Log.d("AuthRepository", "Attempting Google login with token.")
-            // Assuming your backend expects idToken in a specific JSON structure
             val response = apiService.googleLogin(mapOf("id_token" to idToken))
             if (response.isSuccessful) {
                 val authResponse = response.body()

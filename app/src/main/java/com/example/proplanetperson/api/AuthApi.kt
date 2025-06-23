@@ -1,21 +1,24 @@
+
 package com.example.proplanetperson.api
 
 import com.example.proplanetperson.models.AuthResponse
+import com.example.proplanetperson.models.User
 import com.example.proplanetperson.models.UserAuthRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-interface AuthApi {
+interface AuthApi : ApiService { // Make sure ApiService has these functions declared for 'override' to be valid
 
-    @POST("api/register") // <--- REPLACE WITH YOUR ACTUAL REGISTER ENDPOINT
-    suspend fun registerUser(@Body request: UserAuthRequest): Response<AuthResponse>
+    // --- CHANGE THIS LINE ---
+    @POST("api/auth/register") // <--- ADDED '/auth' HERE
+    override suspend fun registerUser(@Body request: UserAuthRequest): Response<AuthResponse>
 
-    @POST("api/login") // <--- REPLACE WITH YOUR ACTUAL LOGIN ENDPOINT
-    suspend fun loginUser(@Body request: UserAuthRequest): Response<AuthResponse>
+    // --- CHANGE THIS LINE ---
+    @POST("api/auth/login") // <--- ADDED '/auth' HERE
+    override suspend fun loginUser(@Body user: User): Response<AuthResponse>
 
-    @POST("api/google-login") // <--- REPLACE WITH YOUR ACTUAL GOOGLE LOGIN ENDPOINT
-    suspend fun googleLogin(@Body idToken: String): Response<AuthResponse> // Assuming backend expects plain ID token
-    // If your backend expects a JSON object like { "idToken": "..." }, you might need:
-    // suspend fun googleLogin(@Body body: Map<String, String>): Response<AuthResponse>
+    // --- CHANGE THIS LINE ---
+    @POST("api/auth/google-login") // <--- ADDED '/auth' HERE
+    override suspend fun googleLogin(@Body body: Map<String, String>): Response<AuthResponse>
 }
